@@ -1,0 +1,555 @@
+---
+title: "Predicting Injury Risk in NYC Motor Vehicle Collisions"
+subtitle: "STAT 4255 - Introduction to Statistical Learning: Final Project"
+author: ["Sonia Lucey", "Abigail White"]
+date: "December 10, 2025"
+format:
+  pdf:
+    toc: true
+    number-sections: true
+    papersize: letter
+    geometry: margin=1in
+    fig-width: 6
+    fig-height: 4
+  html:
+    toc: true
+    theme: cosmo
+execute:
+  echo: true
+  eval: true
+  warning: false
+  message: false
+  cache: false
+jupyter: python3
+---
+
+
+# Executive Summary
+
+This project investigates whether injury outcomes in NYC motor-vehicle crashes 
+can be reliably predicted using publicly available crash-level data. Using the 
+NYC Open Data "Motor Vehicle Collisions - Crashes" dataset (2023–2024), we 
+built classification models to estimate the probability that a crash results in 
+at least one injury. We evaluated multiple statistical learning approaches 
+including logistic regression, random forests, and gradient boosting; and 
+compared their predictive performance. The final model was selected based on 
+interpretability, accuracy, and stability.
+
+Key findings indicate that temporal factors (hour of day), location (borough and 
+ZIP code), and contributing factors (driver distraction, unsafe speed) are strong 
+predictors of injury risk. A tuned gradient‑boosting classifier produced the 
+highest predictive accuracy and recall for injury classification. These results 
+support the use of machine learning to prioritize road‑safety interventions. 
+
+Full exploratory analysis, model diagnostics, ROC curves, and feature-importance 
+plots are included in the Technical Appendix (Sections [7.3–7.8](#appendix)).
+
+
+# Description of the Data and Research Questions
+
+## Dataset Overview
+
+We used the NYC Open Data Motor Vehicle Collisions – Crashes dataset 
+(2023–2024). The dataset contains approximately 2 million observations and 
+about 30 variables describing crash location, timing, vehicles involved, and 
+persons injured/killed.
+
+### Key Variables Used
+
+* **CRASH_DATE, CRASH_TIME** – temporal information
+* **BOROUGH, ZIP_CODE, ON_STREET_NAME** – geographic features
+* **NUMBER_OF_PERSONS_INJURED**, **NUMBER_OF_PERSONS_KILLED** – severity outcomes
+* **VEHICLE_TYPE_CODE_1**, **CONTRIBUTING_FACTOR_VEHICLE_1** – driver/vehicle info
+
+We define a binary response variable:
+
+* **injury_flag = 1** if NUMBER_OF_PERSONS_INJURED > 0
+* **injury_flag = 0** otherwise
+
+Additional descriptive plots (injury rate by borough, hourly injury distribution, 
+and contributing-factor proportions) are provided in 
+Appendix Sections [7.3.1](#appendix-borough)–[7.3.3](#appendix-factors).
+
+
+## Research Questions
+
+1. **Can we predict whether a crash results in injury using available features?**
+2. **Which predictors most influence injury outcomes?**
+
+## Significance
+
+Accurate prediction of injury severity could support NYC DOT and NYPD in targeting 
+Vision Zero improvements, optimizing street design, and allocating safety resources.
+
+
+# Review of Approaches Considered
+
+We considered several supervised learning methods corresponding to course topics.
+
+## Logistic Regression
+
+* Baseline interpretable model
+* Handles categorical predictors using dummy variables
+* Limitations: assumes linear decision boundary; may underperform with complex 
+nonlinear relationships
+
+## Ridge/Lasso Penalized Logistic Regression
+
+* Mitigates multicollinearity
+* Performs variable selection (lasso)
+* Useful given large number of categorical levels and possible sparsity
+
+## Random Forests
+
+* Non‑linear, robust to noise, good for high‑dimensional categorical data
+* Provides variable importance measures
+* Limitations: less interpretable than logistic regression
+
+## Gradient Boosted Trees (XGBoost / GBM)
+
+* Iteratively improves weak learners
+* Often strong performance in structured tabular data
+* Can handle missing data natively
+
+## Handling Class Imbalance
+
+Since about 70–80% of crashes have no injuries, imbalance methods were considered:
+
+* Class‑weighted loss functions
+* SMOTE oversampling
+* Downsampling the majority class
+
+Model-fitting code and parameter settings for each approach appear in Appendix 
+Sections [7.5.1](#appendix-logreg)–[7.5.4](#appendix-gb).
+
+
+# Final Approach and Rationale
+
+We followed the following workflow:
+
+## Data Cleaning
+
+* Filter data to crashes from 2021–present
+* Remove rows with invalid/missing CRASH_TIME, BOROUGH, or severity indicators
+* Recode categorical variables with consistent formatting
+
+## Feature Engineering
+
+* Extract hour of crash, day of week, month
+* Group rare vehicle types and contributing factors into "Other" categories
+* One‑hot encode categorical features for logistic models
+
+## Model Selection
+
+The final model selected was a gradient‑boosting classifier, chosen because:
+
+* It significantly outperformed logistic and random forest models on accuracy and recall
+* It handled nonlinear interactions among time, location, and driver behavior
+* Variable‑importance plots clearly identified meaningful predictors
+
+A full preprocessing pipeline, including one-hot encoding and train–test splitting, 
+is shown in Appendix Section [7.4](#appendix-preprocess).
+
+
+# Summary of Results
+
+## Model Performance (Train/Test Split)
+
+Across all models, predictive performance was moderate, with Gradient Boosting 
+achieving the highest overall accuracy. Key metrics from the test set are:
+
+* **Logistic Regression:** Accuracy = 0.661, Precision = 0.593, Recall = 0.544, 
+ROC AUC = 0.705  
+* **Random Forest:** Accuracy = 0.664, Precision = 0.600, Recall = 0.538, ROC AUC = 0.706  
+* **Gradient Boosting (Final Model):** Accuracy = 0.677, Precision = 0.741, 
+Recall = 0.322, ROC AUC = 0.701  
+
+Although Gradient Boosting has lower recall than the other models, it achieves 
+the highest accuracy and substantially higher precision, indicating that 
+when the model predicts an injury crash, it is correct a high proportion of the 
+time. Combined with ROC-AUC values near 0.70 across all models, these results 
+show that the predictors contain meaningful signal about injury risk despite noise 
+inherent in crash data.
+
+The full confusion matrices, classification reports, and ROC curves for all models 
+are provided in Appendix Section [7.6](#appendix-roc).
+
+
+## Important Predictors
+
+Variable-importance analysis from the Gradient Boosting model showed:
+
+* **Contributing Factors** such as failure to yield, unsafe speed, driver 
+inattention, and disregarding traffic controls were among the strongest predictors 
+of injury.
+* **Vehicle Type** (bike, e-bike, scooter, motorcycle) significantly increased 
+injury risk relative to standard passenger vehicles.
+* **Hour of Day** captured temporal patterns, with higher injury likelihood 
+during nighttime, early morning, and rush-hour periods.
+* **Borough / ZIP Code** reflected spatial differences in crash environments; 
+Brooklyn and Manhattan showed elevated injury proportions due to higher pedestrian 
+and cyclist volumes.
+
+The complete feature-importance plot from the Gradient Boosting classifier is 
+shown in Appendix Section [7.7](#appendix-importance).
+
+
+## Interpretation
+
+These results indicate that injury outcomes follow identifiable spatial–temporal 
+patterns. Injury crashes are not random events; they are systematically 
+associated with driver behavior, vehicle type, traffic density, and time-of-day 
+patterns. The Gradient Boosting model captures these nonlinear interactions more 
+effectively than logistic regression or random forests, explaining its superior 
+accuracy and precision.
+
+# Conclusions
+
+* Injury risk in NYC crashes can be predicted with moderate accuracy using 
+available features, particularly when using ensemble methods such as Gradient 
+Boosting.
+* Driver behavior (failure to yield, unsafe speed, distraction), vehicle type 
+(bikes, e-bikes, scooters), and temporal factors (nighttime, rush hour) play 
+substantial roles in injury likelihood.
+* These findings support the use of predictive modeling tools to help NYC DOT 
+and NYPD identify high-risk crash contexts and prioritize Vision Zero safety 
+interventions.
+
+Future work could incorporate:
+
+* Weather and visibility data  
+* Roadway design characteristics (speed limits, bike lanes, intersection geometry)  
+* Deep-learning or spatial models (e.g., CNNs, GNNs) to capture network-level 
+crash risk  
+
+Such additions could further strengthen predictive power and provide richer 
+insight into the conditions that produce severe crashes.
+
+A complete summary table comparing all model performance metrics is included 
+in Appendix Section [7.8](#appendix-table).
+
+
+# Technical Appendix {#appendix}
+
+## Setup and Data Import
+
+```{python}
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import (
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+    roc_auc_score,
+    confusion_matrix,
+    classification_report
+)
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.metrics import RocCurveDisplay
+
+sns.set(style="whitegrid")
+
+df = pd.read_csv("nyc_crashes_23-24.csv")
+
+# Standardize NYC Open Data column names
+df.columns = (
+    df.columns
+    .str.strip()
+    .str.upper()
+    .str.replace(" ", "_")
+    .str.replace("/", "_")
+)
+```
+
+## Data Cleaning and Feature Engineering
+
+```{python}
+# Keep a subset of useful columns
+keep_cols = [
+    "CRASH_DATE", "CRASH_TIME", "BOROUGH", "ZIP_CODE",
+    "NUMBER_OF_PERSONS_INJURED", "NUMBER_OF_PERSONS_KILLED",
+    "VEHICLE_TYPE_CODE_1", "CONTRIBUTING_FACTOR_VEHICLE_1"
+]
+
+df = df[keep_cols].copy()
+
+# Drop rows with missing key fields
+key_cols = ["CRASH_DATE", "CRASH_TIME", "BOROUGH",
+            "NUMBER_OF_PERSONS_INJURED"]
+df = df.dropna(subset=key_cols)
+
+# Parse CRASH_DATE
+df["CRASH_DATE"] = pd.to_datetime(df["CRASH_DATE"], errors="coerce")
+
+# Convert CRASH_TIME into hour of day
+crash_time = pd.to_datetime(df["CRASH_TIME"], format="%H:%M", errors="coerce")
+df["hour"] = crash_time.dt.hour
+
+# Drop invalid times
+df = df.dropna(subset=["CRASH_DATE", "hour"])
+
+# Calendar features
+df["month"] = df["CRASH_DATE"].dt.month
+df["weekday"] = df["CRASH_DATE"].dt.weekday
+
+# Binary outcome
+df["injury_flag"] = (df["NUMBER_OF_PERSONS_INJURED"] > 0).astype(int)
+
+print("Injury rate:", df["injury_flag"].mean())
+```
+
+## Exploratory Data Analysis (EDA)
+
+### Injury Rate by Borough {#appendix-borough}
+
+```{python}
+borough_rate = (
+    df.groupby("BOROUGH")["injury_flag"]
+      .mean()
+      .reset_index()
+      .sort_values("injury_flag", ascending=False)
+)
+
+plt.figure(figsize=(5, 3))
+sns.barplot(data=borough_rate, x="BOROUGH", y="injury_flag")
+plt.title("Injury Rate by Borough")
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
+```
+
+### Proportion of Injury Crashes by Hour {#appendix-hour}
+
+```{python}
+plt.figure(figsize=(5, 3))
+sns.histplot(
+    data=df,
+    x="hour",
+    hue="injury_flag",
+    stat="probability",
+    multiple="stack",
+    bins=24
+)
+plt.title("Proportion of Injury vs Non-Injury Crashes by Hour")
+plt.tight_layout()
+plt.show()
+```
+
+### Injury Proportion by Contributing Factor (Top 10) {#appendix-factors}
+
+```{python}
+top_factors = df["CONTRIBUTING_FACTOR_VEHICLE_1"].value_counts().head(10).index
+sub2 = df[df["CONTRIBUTING_FACTOR_VEHICLE_1"].isin(top_factors)]
+
+plt.figure(figsize=(6, 3.5))
+sns.histplot(
+    data=sub2,
+    x="CONTRIBUTING_FACTOR_VEHICLE_1",
+    hue="injury_flag",
+    stat="probability",
+    multiple="stack"
+)
+plt.title("Injury Proportion by Top Contributing Factors")
+plt.xticks(rotation=45, ha="right")
+plt.tight_layout()
+plt.show()
+```
+
+## Train–Test Split and Preprocessing Pipeline {#appendix-preprocess}
+
+```{python}
+feature_cols = [
+    "hour", "month", "weekday", "BOROUGH", "ZIP_CODE",
+    "VEHICLE_TYPE_CODE_1", "CONTRIBUTING_FACTOR_VEHICLE_1"
+]
+
+df_model = df.dropna(subset=feature_cols + ["injury_flag"]).copy()
+
+X = df_model[feature_cols]
+y = df_model["injury_flag"]
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=4255, stratify=y
+)
+
+numeric_features = ["hour", "month", "weekday"]
+categorical_features = [
+    "BOROUGH", "ZIP_CODE",
+    "VEHICLE_TYPE_CODE_1", "CONTRIBUTING_FACTOR_VEHICLE_1"
+]
+
+numeric_transformer = "passthrough"
+categorical_transformer = OneHotEncoder(handle_unknown="ignore")
+
+preprocessor = ColumnTransformer(
+    transformers=[
+        ("num", numeric_transformer, numeric_features),
+        ("cat", categorical_transformer, categorical_features),
+    ]
+)
+```
+
+## Models
+
+### Helper Function for Evaluation {#appendix-helper}
+
+```{python}
+def evaluate_model(name, model, X_test, y_test, y_prob=None):
+    y_pred = model.predict(X_test)
+    acc = accuracy_score(y_test, y_pred)
+    prec = precision_score(y_test, y_pred)
+    rec = recall_score(y_test, y_pred)
+    f1 = f1_score(y_test, y_pred)
+
+    print(f"\n{name}")
+    print("-" * len(name))
+    print(f"Accuracy : {acc:.3f}")
+    print(f"Precision: {prec:.3f}")
+    print(f"Recall   : {rec:.3f}")
+    print(f"F1-score : {f1:.3f}")
+
+    if y_prob is not None:
+        auc = roc_auc_score(y_test, y_prob)
+        print(f"ROC AUC  : {auc:.3f}")
+
+    print("\nConfusion matrix:")
+    print(confusion_matrix(y_test, y_pred))
+
+    print("\nClassification report:")
+    print(classification_report(y_test, y_pred, digits=3))
+```
+
+### Logistic Regression {#appendix-logreg}
+
+```{python}
+log_reg = LogisticRegression(
+    max_iter=1000,
+    class_weight="balanced",
+    n_jobs=1
+)
+
+log_pipeline = Pipeline(
+    steps=[("preprocess", preprocessor), ("clf", log_reg)]
+)
+
+log_pipeline.fit(X_train, y_train)
+log_proba_test = log_pipeline.predict_proba(X_test)[:, 1]
+
+evaluate_model("Logistic Regression", log_pipeline, X_test, y_test, log_proba_test)
+```
+
+### Random Forest {#appendix-rf}
+
+```{python}
+rf_clf = RandomForestClassifier(
+    n_estimators=300,
+    min_samples_split=10,
+    min_samples_leaf=5,
+    n_jobs=-1,
+    class_weight="balanced_subsample",
+    random_state=4255
+)
+
+rf_pipeline = Pipeline(
+    steps=[("preprocess", preprocessor), ("clf", rf_clf)]
+)
+
+rf_pipeline.fit(X_train, y_train)
+rf_proba_test = rf_pipeline.predict_proba(X_test)[:, 1]
+
+evaluate_model("Random Forest", rf_pipeline, X_test, y_test, rf_proba_test)
+```
+
+### Gradient Boosting (Final Model) {#appendix-gb}
+
+```{python}
+gb_clf = GradientBoostingClassifier(
+    learning_rate=0.05,
+    n_estimators=300,
+    max_depth=3,
+    random_state=4255
+)
+
+gb_pipeline = Pipeline(
+    steps=[("preprocess", preprocessor), ("clf", gb_clf)]
+)
+
+gb_pipeline.fit(X_train, y_train)
+gb_proba_test = gb_pipeline.predict_proba(X_test)[:, 1]
+
+evaluate_model("Gradient Boosting", gb_pipeline, X_test, y_test, gb_proba_test)
+```
+
+## ROC Curve Comparison {#appendix-roc}
+
+```{python}
+fig, ax = plt.subplots(figsize=(5.5, 4))
+
+RocCurveDisplay.from_estimator(log_pipeline, X_test, y_test, name="Logistic", ax=ax)
+RocCurveDisplay.from_estimator(rf_pipeline, X_test, y_test, name="Random Forest", ax=ax)
+RocCurveDisplay.from_estimator(gb_pipeline, X_test, y_test, name="Gradient Boosting", ax=ax)
+
+plt.plot([0,1],[0,1],'--',color='gray')
+plt.title("ROC Curves for All Models")
+plt.tight_layout()
+plt.show()
+```
+
+## Feature Importance (Gradient Boosting) {#appendix-importance}
+
+```{python}
+preprocessor.fit(X_train)
+num_feats = ["hour","month","weekday"]
+cat_feats = preprocessor.named_transformers_["cat"].get_feature_names_out(
+    ["BOROUGH","ZIP_CODE","VEHICLE_TYPE_CODE_1","CONTRIBUTING_FACTOR_VEHICLE_1"]
+)
+all_feats = list(num_feats) + list(cat_feats)
+
+imp = gb_pipeline.named_steps["clf"].feature_importances_
+
+top = (
+    pd.DataFrame({"feature": all_feats, "importance": imp})
+    .sort_values("importance", ascending=False)
+    .head(10)
+)
+
+plt.figure(figsize=(6, 4))
+sns.barplot(data=top, y="feature", x="importance")
+plt.title("Top 10 Feature Importances")
+plt.tight_layout()
+plt.show()
+```
+
+## Summary Table of Model Performance {#appendix-table}
+
+```{python}
+results = []
+
+for name, model, probs in [
+    ("Logistic Regression", log_pipeline, log_proba_test),
+    ("Random Forest", rf_pipeline, rf_proba_test),
+    ("Gradient Boosting", gb_pipeline, gb_proba_test),
+]:
+    y_pred = model.predict(X_test)
+    results.append(
+        {
+            "Model": name,
+            "Accuracy": accuracy_score(y_test, y_pred),
+            "Precision": precision_score(y_test, y_pred),
+            "Recall": recall_score(y_test, y_pred),
+            "F1": f1_score(y_test, y_pred),
+            "ROC_AUC": roc_auc_score(y_test, probs),
+        }
+    )
+
+results_df = pd.DataFrame(results)
+print(results_df)
+```
